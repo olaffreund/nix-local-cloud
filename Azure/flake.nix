@@ -1,5 +1,5 @@
 {
-  description = "NixOS AWS AMI builder and Terraform deployment";
+  description = "NixOS Azure VM image builder and Terraform deployment";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -28,14 +28,14 @@
           map (name: getDefaultNix name) validServiceDirs
         else [];
 
-      # Common configuration for both local and AWS deployments
+      # Common configuration for both local and Azure deployments
       commonConfig = {
         # Basic system configuration
         system.stateVersion = "24.05";
 
         # Set hostname
         networking = {
-          hostName = "nixos-aws";
+          hostName = "nixos-azure";
           firewall = {
             enable = true;
             allowedTCPPorts = [22 80 443 3000 5432 9090 9100];
@@ -59,7 +59,6 @@
         services.openssh = {
           enable = true;
           settings = {
-            # Use mkForce to override the Amazon image default setting
             PermitRootLogin = lib.mkForce "no";
             PasswordAuthentication = true;
             KbdInteractiveAuthentication = true;
@@ -76,22 +75,18 @@
           inetutils
           iproute2
           nettools
-          # AWS-specific utilities
-          awscli
+          # Azure-specific utilities
+          azure-cli
         ];
       };
 
-      # AWS-specific configuration
-      awsConfig = {
+      # Azure-specific configuration
+      azureConfig = {
         imports = [
           # Include all service modules from hosts/ directory
         ] ++ (getHostModules ../hosts);
 
-        # AWS-specific configuration
-        ec2.hvm = true;
-        ec2.efi = true;
-        
-        # Enable cloud-init for AWS
+        # Enable cloud-init for Azure
         services.cloud-init = {
           enable = true;
           settings = {
@@ -116,28 +111,27 @@
               "ssh-import-id"
               "set-passwords"
               "timezone"
-              "disable-ec2-metadata"
               "runcmd"
               "ssh_authkey_fingerprints"
             ];
           };
         };
         
-        # Use grub boot loader for better AWS compatibility
+        # Setup waagent (Azure Linux Agent)
+        services.udev.extraRules = ''
+          SUBSYSTEM=="net", KERNEL=="eth*", ATTRS{address}=="00:15:5d:*", NAME="eth0"
+        '';
+        
+        # Use grub boot loader for Azure compatibility
         boot.loader.grub = {
           enable = true;
+          version = 2;
           device = "nodev";
           efiSupport = true;
           efiInstallAsRemovable = true;
         };
         
         boot.loader.systemd-boot.enable = false;
-        
-        # Amazon image configuration
-        amazonImage = {
-          sizeMB = 16384; # 16 GB disk image size
-          format = "raw";
-        };
       };
       
       # Terraform module
@@ -151,21 +145,21 @@
           SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
           TERRAFORM_DIR="$SCRIPT_DIR/../terraform"
           
-          # Check if AWS AMI ID is provided
+          # Check if Azure image URI is provided
           if [ -z "$1" ]; then
-            echo "Error: No AMI ID provided"
-            echo "Usage: $0 <ami-id> [environment] [region]"
+            echo "Error: No image URI provided"
+            echo "Usage: $0 <image-uri> [environment] [location]"
             exit 1
           fi
           
-          AMI_ID="$1"
+          IMAGE_URI="$1"
           ENVIRONMENT="''${2:-dev}"
-          REGION="''${3:-us-west-2}"
+          LOCATION="''${3:-eastus}"
           
           # Detect IP address
           MY_IP=$(curl -s https://checkip.amazonaws.com)
           
-          echo "Deploying NixOS AMI $AMI_ID to $REGION ($ENVIRONMENT environment)"
+          echo "Deploying NixOS image $IMAGE_URI to $LOCATION ($ENVIRONMENT environment)"
           echo "Your IP for security group: $MY_IP"
           
           # Initialize Terraform if needed
@@ -176,9 +170,9 @@
           
           # Run Terraform apply
           cd "$TERRAFORM_DIR" && terraform apply \
-            -var="nixos_ami_id=$AMI_ID" \
+            -var="nixos_image_uri=$IMAGE_URI" \
             -var="environment=$ENVIRONMENT" \
-            -var="aws_region=$REGION" \
+            -var="location=$LOCATION" \
             -var="my_ip=$MY_IP" \
             -auto-approve
             
@@ -191,17 +185,24 @@
     in {
       # Define packages that can be built
       packages.${system} = rec {
-        # Default package is the AWS AMI
-        default = aws-ami;
+        # Default package is the Azure VHD
+        default = azure-image;
 
-        # AWS AMI builder
-        aws-ami = nixos-generators.nixosGenerate {
+        # Azure image builder
+        azure-image = nixos-generators.nixosGenerate {
           inherit system;
           modules = [
             commonConfig
-            awsConfig
+            azureConfig
+            # Define disk size
+            { 
+              virtualisation = {
+                diskSize = 16384; # 16GB disk size
+                format = "vhd";
+              };
+            }
           ];
-          format = "amazon";
+          format = "azure";
         };
         
         # Terraform deploy script
@@ -210,22 +211,22 @@
       
       # Define apps
       apps.${system} = {
-        # Default app deploys to AWS
-        default = self.apps.${system}.deploy-to-aws;
+        # Default app deploys to Azure
+        default = self.apps.${system}.deploy-to-azure;
         
-        # Deploy to AWS (requires AMI ID as argument)
-        deploy-to-aws = {
+        # Deploy to Azure (requires image URI as argument)
+        deploy-to-azure = {
           type = "app";
           program = "${self.packages.${system}.terraform-deploy}/bin/terraform-deploy";
         };
       };
       
       # Define a NixOS configuration for testing
-      nixosConfigurations.aws-image = lib.nixosSystem {
+      nixosConfigurations.azure-image = lib.nixosSystem {
         inherit system;
         modules = [
           commonConfig
-          awsConfig
+          azureConfig
         ];
       };
     };
