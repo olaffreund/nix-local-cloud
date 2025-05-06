@@ -62,9 +62,9 @@
   # Open firewall ports for Prometheus and node exporter
   networking.firewall.allowedTCPPorts = [9090 9100];
 
-  # User message
-  system.userActivation.prometheusMessage = ''
-    echo "Prometheus is running at http://localhost:9090"
-    echo "Node Exporter is running at http://localhost:9100/metrics"
+  # Add a custom message to the login banner
+  environment.etc."issue.d/prometheus-info.txt".text = ''
+    Prometheus is running at http://localhost:9090
+    Node Exporter is running at http://localhost:9100/metrics
   '';
 }

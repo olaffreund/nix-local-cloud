@@ -38,10 +38,10 @@
   # Open firewall port for PostgreSQL
   networking.firewall.allowedTCPPorts = [5432];
 
-  # User message
-  system.userActivation.postgresqlMessage = ''
-    echo "PostgreSQL is running on port 5432"
-    echo "Default database: nixos"
-    echo "Default credentials: nixos/nixos"
+  # Add a custom message to the login banner
+  environment.etc."issue.d/postgresql-info.txt".text = ''
+    PostgreSQL is running on port 5432
+    Default database: nixos
+    Default credentials: nixos/nixos
   '';
 }

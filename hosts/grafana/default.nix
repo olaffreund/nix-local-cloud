@@ -45,9 +45,9 @@
   # Open firewall port for Grafana
   networking.firewall.allowedTCPPorts = [3000];
 
-  # User message
-  system.userActivation.grafanaMessage = ''
-    echo "Grafana is running at http://localhost:3000"
-    echo "Default credentials: admin/admin"
+  # Add a custom message to the login banner
+  environment.etc."issue.d/grafana-info.txt".text = ''
+    Grafana is running at http://localhost:3000
+    Default credentials: admin/admin
   '';
 }

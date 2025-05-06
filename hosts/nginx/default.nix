@@ -51,8 +51,8 @@
   # Open firewall port for HTTP
   networking.firewall.allowedTCPPorts = [80 443];
 
-  # User message
-  system.userActivation.nginxMessage = ''
-    echo "Nginx is running at http://localhost"
+  # Add a custom message to the login banner
+  environment.etc."issue.d/nginx-info.txt".text = ''
+    Nginx is running at http://localhost
   '';
 }
