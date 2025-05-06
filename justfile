@@ -108,13 +108,13 @@ deploy-gcp image_name project_id="" zone="us-central1-a":
 # Run local VM
 run-vm: check-nix
     @echo "Starting local VM..."
-    @if [ ! -e ./result/bin/run-nixos-vm ]; then \
+    @if [ ! -e ./result/bin/run-nixos-vm-vm ]; then \
         echo -e "\033[33mVM image not found. Building first...\033[0m"; \
         just build-vm; \
     fi
     @echo -e "\033[32mLaunching VM...\033[0m"
     @echo -e "\033[33mPress Ctrl+A, X to exit QEMU\033[0m"
-    @./result/bin/run-nixos-vm
+    @./result/bin/run-nixos-vm-vm
 
 # Clean up AWS resources
 cleanup-aws:

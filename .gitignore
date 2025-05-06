@@ -30,6 +30,11 @@ result-*
 .vm/
 vm-state/
 nixos-microvm/
+# QEMU VM files
+nixos-vm.qcow2
+nixos-vm-efi-vars.fd
+*.qcow2
+*.fd
 
 # Terraform files
 .terraform/

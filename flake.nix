@@ -80,6 +80,12 @@
       # Default package is the local VM runner
       default = vm-runner;
 
+      # VM image for local testing
+      vm-image = let
+        vm-config = self.nixosConfigurations.vm;
+      in
+        vm-config.config.system.build.vm;
+
       # Local VM runner script
       vm-runner = let
         vm-config = self.nixosConfigurations.vm;
@@ -91,14 +97,18 @@
           echo "SSH will be available on localhost:2222 once the VM is fully booted"
           echo "Connect with: ssh nixos@localhost -p 2222"
           echo "Password login is enabled, you can use: nixos/nixos"
-          ${vm-derivation}/bin/run-*-vm -m 2048
+          
+          # Direct execution of the VM symlink
+          if [ -e "${vm-derivation}/bin/run-nixos-vm-vm" ]; then
+            echo "Found VM binary: ${vm-derivation}/bin/run-nixos-vm-vm"
+            ${vm-derivation}/bin/run-nixos-vm-vm -m 2048
+          else
+            echo "Error: Could not find expected VM binary at ${vm-derivation}/bin/run-nixos-vm-vm"
+            echo "Contents of directory:"
+            ls -la ${vm-derivation}/bin
+            exit 1
+          fi
         '';
-        
-      # VM image for local testing
-      vm-image = let
-        vm-config = self.nixosConfigurations.vm;
-      in
-        vm-config.config.system.build.vm;
     };
 
     # Define applications (runnable commands)
