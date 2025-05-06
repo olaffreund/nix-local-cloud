@@ -55,4 +55,21 @@
 
   # AWS specific settings
   ec2.hvm = true;
+  
+  # Required Amazon image configuration
+  formatAttr = "qcow2";
+  amazonImage = {
+    name = "nixos-aws";
+    format = "qcow2";
+    sizeMB = 8192; 
+    contents = [];
+    diskSize = 8192;
+    configFile = ./configuration.nix;
+    # Recommended to ensure compatibility with AWS
+    populateRootCommands = ''
+      mkdir -p ./etc/pam.d
+      mkdir -p ./var/log
+      touch ./var/log/lastlog
+    '';
+  };
 }
