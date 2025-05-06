@@ -14,6 +14,11 @@
       url = "github:astro/microvm.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
@@ -22,6 +27,7 @@
     nixpkgs-unstable,
     nixos-generators,
     microvm,
+    sops-nix,
     ...
   }: let
     system = "x86_64-linux";
@@ -38,16 +44,36 @@
     }: {
       imports = [
         "${modulesPath}/virtualisation/amazon-image.nix"
+        sops-nix.nixosModules.sops
       ];
 
       # System configuration
       system.stateVersion = "24.11";
 
-      # User configuration
+      # SOPS configuration for secrets management
+      sops = {
+        defaultSopsFile = ./secrets.yaml;
+        age.keyFile = "/var/lib/sops-nix/key.txt";
+        # If not using an age key that is expected to exist on the target machine
+        # Use the following instead for ephemeral VMs:
+        # age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+
+        # Encrypted secrets
+        secrets = {
+          "admin-password" = {
+            neededForUsers = true;
+          };
+          "db-password" = {};
+          "api-token" = {};
+        };
+      };
+
+      # User configuration with password from sops
       users.users.admin = {
         isNormalUser = true;
         extraGroups = ["wheel"];
-        initialPassword = "changeme";
+        # Use the sops-managed password instead of plaintext
+        passwordFile = config.sops.secrets."admin-password".path;
         openssh.authorizedKeys.keys = [
           # Add your SSH public key here
           "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCMqMzUgRe2K350QBbQXbJFxVomsQbiIEw/ePUzjbyALklt5gMyo/yxbCWaKV1zeL4baR/vS5WOp9jytxceGFDaoJ7/O8yL4F2jj96Q5BKQOAz3NW/+Hmj/EemTOvVJWB1LQ+V7KgCbkxv6ZcUwL5a5+2QoujQNL5yVL
@@ -260,6 +286,10 @@
         jq
         yq
         nixos-generators
+
+        # Secrets management
+        sops
+        age
       ];
 
       shellHook = ''
@@ -310,6 +340,33 @@
 
           echo "VHD uploaded. You can create a VM from this image using:"
           echo "az image create --resource-group $resource_group --name nixos-image --os-type Linux --source https://$storage_account.blob.core.windows.net/$container/nixos-azure.vhd"
+        }
+
+        # Generate a new age key for a host
+        gen-age-key() {
+          local NAME="$1"
+          if [ -z "$NAME" ]; then
+            echo "Usage: gen-age-key <name>"
+            echo "Example: gen-age-key aws-host"
+            return 1
+          fi
+
+          mkdir -p ./keys
+          age-keygen -o "./keys/$NAME.key" 2>/dev/null
+          echo "Age key generated for $NAME"
+          echo "Public key: $(age-keygen -y -o "./keys/$NAME.key" 2>/dev/null)"
+          echo "Update your .sops.yaml file with this public key"
+        }
+
+        # Encrypt secrets
+        encrypt-secrets() {
+          sops --encrypt --in-place secrets.yaml
+          echo "Secrets encrypted with sops"
+        }
+
+        # Edit secrets
+        edit-secrets() {
+          EDITOR=vim sops secrets.yaml
         }
       '';
     };

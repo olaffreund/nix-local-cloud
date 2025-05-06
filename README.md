@@ -42,6 +42,43 @@ Create a NixOS VM and run it locally for testing or push to AWS or Azure
    ```
    This will start a MicroVM with the same base configuration.
 
+## Secrets Management
+
+This project uses [sops-nix](https://github.com/Mic92/sops-nix) to securely manage secrets across cloud deployments. All sensitive data like passwords and API tokens are encrypted in the `secrets.yaml` file.
+
+### Setting Up Secrets
+
+1. **Generate age keys for your hosts**:
+   ```bash
+   # Generate keys (once per host)
+   gen-age-key aws-host
+   gen-age-key azure-host
+   gen-age-key local-vm
+   ```
+
+2. **Update the .sops.yaml file** with the public keys output from the previous commands.
+
+3. **Edit the secrets**:
+   ```bash
+   # Edit the secrets file with automatic encryption
+   edit-secrets
+   ```
+   Or manually edit and then encrypt:
+   ```bash
+   # Edit secrets.yaml with your editor
+   vim secrets.yaml
+   # Encrypt after editing
+   encrypt-secrets
+   ```
+
+4. **Access in NixOS**: The secrets are automatically decrypted during system activation and made available at the paths defined in the `sops.secrets` configuration.
+
+### Secret Rotation
+
+To change secrets:
+1. Use `edit-secrets` to modify the encrypted values
+2. Rebuild and deploy your systems
+
 ## Key Components
 
 1. **Common Configuration**: The local VM, AWS instance, and Azure VM all use the same base NixOS configuration, ensuring consistency.
@@ -53,6 +90,8 @@ Create a NixOS VM and run it locally for testing or push to AWS or Azure
 4. **Terraform**: Used to deploy the infrastructure to AWS and Azure.
 
 5. **Development Shell**: Provides all the necessary tools to build and deploy.
+
+6. **Secrets Management**: Uses sops-nix to securely manage credentials across environments.
 
 This approach gives you a consistent environment between local development and cloud deployment, which is ideal for testing and development workflows.
 
@@ -71,5 +110,3 @@ Remember to:
 1. Replace the SSH public key with your own (in the flake.nix and Azure Terraform config)
 2. Update the resource group and storage settings in the Azure Terraform configuration
 3. Customize the NixOS configuration according to your needs
-
-Similar code found with 2 license types
