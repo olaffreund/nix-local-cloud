@@ -1,13 +1,8 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: {
+{...}: {
   # Enable Grafana service
   services.grafana = {
     enable = true;
-    
+
     # Updated configuration using the new settings API
     settings = {
       server = {
@@ -15,14 +10,14 @@
         domain = "localhost";
         http_addr = "0.0.0.0";
       };
-      
+
       security = {
         # Set admin password directly (for development only)
         admin_password = "admin";
         # Alternatively, use this for production:
         # admin_password = "$__file{${pkgs.writeText "admin-password" "admin"}}";
       };
-      
+
       # Fix for deprecated anonymous auth options
       "auth.anonymous" = {
         enabled = true;

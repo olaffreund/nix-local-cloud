@@ -1,9 +1,4 @@
-{
-  config,
-  pkgs,
-  lib,
-  ...
-}: {
+{pkgs, ...}: {
   # Enable Prometheus monitoring system
   services.prometheus = {
     enable = true;
