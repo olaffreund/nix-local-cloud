@@ -1,21 +1,13 @@
-# NixOS configuration for VM
+# Common base configuration for all deployments
 {
   lib,
   pkgs,
   ...
-}:
-# VM Configuration function
-{
-  name ? "nixos-vm",
-  vmHost ? "localhost",
 }: {
-  # Import base configuration
-  imports = [../common/base-configuration.nix];
+  # Basic system configuration
+  system.stateVersion = "24.05";
 
-  # Set hostname - specific to local environment
-  networking.hostName = name;
-
-  # Firewall configuration
+  # Default firewall settings
   networking.firewall = {
     enable = true;
     allowedTCPPorts = [22 80 443 3000 5432 9090 9100];
@@ -37,22 +29,20 @@
   # SSH server configuration
   services.openssh = {
     enable = true;
-    startWhenNeeded = false; # Make sure SSH starts at boot
     settings = {
-      PermitRootLogin = "no";
+      PermitRootLogin = lib.mkForce "no";
       PasswordAuthentication = true;
       KbdInteractiveAuthentication = true;
     };
   };
 
-  # Include useful packages
+  # Common packages for all environments
   environment.systemPackages = with pkgs; [
     vim
     wget
     curl
     git
     htop
-    # Network tools for diagnostics
     inetutils
     iproute2
     nettools
