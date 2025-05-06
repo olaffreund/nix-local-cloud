@@ -145,6 +145,12 @@
           echo "Password login is enabled, you can use: nixos/nixos"
           ${vm-derivation}/bin/run-*-vm -m 2048
         '';
+        
+      # VM image for local testing
+      vm-image = let
+        vm-config = self.nixosConfigurations.vm;
+      in
+        vm-config.config.system.build.vm;
     };
 
     # Define applications (runnable commands)

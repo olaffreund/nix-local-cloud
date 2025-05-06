@@ -133,9 +133,11 @@
         
         boot.loader.systemd-boot.enable = false;
         
-        # Amazon image configuration
+        # Updated disk size configuration using the new option name
+        virtualisation.diskSize = 16384; # 16 GB disk image size
+        
+        # Keep format under amazonImage
         amazonImage = {
-          sizeMB = 16384; # 16 GB disk image size
           format = "raw";
         };
       };
