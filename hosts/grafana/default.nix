@@ -7,12 +7,15 @@
   # Enable Grafana service
   services.grafana = {
     enable = true;
-    port = 3000;
-    domain = "localhost";
-    addr = "0.0.0.0";
-
+    
     # Updated configuration using the new settings API
     settings = {
+      server = {
+        http_port = 3000;
+        domain = "localhost";
+        http_addr = "0.0.0.0";
+      };
+      
       security = {
         # Set admin password directly (for development only)
         admin_password = "admin";
@@ -20,19 +23,12 @@
         # admin_password = "$__file{${pkgs.writeText "admin-password" "admin"}}";
       };
       
-      server = {
-        # Ensure server settings are consistent
-        http_port = 3000;
-        domain = "localhost";
-        http_addr = "0.0.0.0";
+      # Fix for deprecated anonymous auth options
+      "auth.anonymous" = {
+        enabled = true;
+        org_name = "Development";
+        org_role = "Viewer";
       };
-    };
-
-    # Enable anonymous access for development
-    auth.anonymous = {
-      enable = true;
-      org_name = "Development";
-      org_role = "Viewer";
     };
 
     # Provision some default dashboards
