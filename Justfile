@@ -146,7 +146,7 @@ local-workflow:
 # Build the local VM image
 build-local:
     @echo "Building local VM image..."
-    nix build .#nixosConfigurations.local-vm.config.system.build.toplevel
+    nix build .#nixosConfigurations.local-vm.config.microvm.declaredRunner
     @echo "Local VM image built successfully"
 
 # Clean up build artifacts
