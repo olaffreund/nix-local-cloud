@@ -1,14 +1,7 @@
 # NixOS configuration for VM
-{
-  lib,
-  pkgs,
-  ...
-}:
+{pkgs, ...}:
 # VM Configuration function
-{
-  name ? "nixos-vm",
-  vmHost ? "localhost",
-}: {
+{name ? "nixos-vm"}: {
   # Import base configuration
   imports = [../common/base-configuration.nix];
 

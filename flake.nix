@@ -27,16 +27,12 @@
       else [];
 
     # Import VM configuration from local folder
-    vmConfigFile = import ./local/configuration.nix { inherit lib pkgs; };
+    vmConfigFile = import ./local/configuration.nix {inherit lib pkgs;};
 
     # Modules for VM configuration
     vmModules = [
       # Local VM-specific configuration
-      ({
-        config,
-        pkgs,
-        ...
-      }: {
+      ({...}: {
         imports =
           [
             "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
@@ -97,7 +93,7 @@
           echo "SSH will be available on localhost:2222 once the VM is fully booted"
           echo "Connect with: ssh nixos@localhost -p 2222"
           echo "Password login is enabled, you can use: nixos/nixos"
-          
+
           # Direct execution of the VM symlink
           if [ -e "${vm-derivation}/bin/run-nixos-vm-vm" ]; then
             echo "Found VM binary: ${vm-derivation}/bin/run-nixos-vm-vm"

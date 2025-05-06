@@ -1,9 +1,5 @@
 # NixOS configuration for GCP deployments
-{
-  lib,
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   # Import base configuration
   imports = [../common/base-configuration.nix];
 
