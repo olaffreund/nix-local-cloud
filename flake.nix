@@ -1,374 +1,173 @@
 {
-  description = "NixOS + Terraform AWS/Azure Deployment";
+  description = "NixOS VM for local cloud development";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-    nixos-generators = {
-      url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    microvm = {
-      url = "github:astro/microvm.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    sops-nix = {
-      url = "github:Mic92/sops-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
   outputs = {
     self,
     nixpkgs,
-    nixpkgs-unstable,
-    nixos-generators,
-    microvm,
-    sops-nix,
-    ...
   }: let
     system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
-    pkgs-unstable = import nixpkgs-unstable {inherit system;};
+    pkgs = nixpkgs.legacyPackages.${system};
+    lib = nixpkgs.lib;
 
-    # Common configuration shared between all deployments
-    commonConfig = {
-      config,
-      lib,
-      pkgs,
-      modulesPath,
-      ...
+    # Function to get all NixOS modules from hosts subdirectories
+    getHostModules = dir:
+      if builtins.pathExists dir
+      then let
+        contents = builtins.readDir dir;
+        subdirs = lib.filterAttrs (name: type: type == "directory") contents;
+        getDefaultNix = name: dir + "/${name}/default.nix";
+        hasDefaultNix = name: builtins.pathExists (getDefaultNix name);
+        validServiceDirs = lib.attrNames (lib.filterAttrs (name: _: hasDefaultNix name) subdirs);
+      in
+        map (name: getDefaultNix name) validServiceDirs
+      else [];
+
+    # VM Configuration
+    vmConfig = {
+      name ? "nixos-vm",
+      vmHost ? "localhost",
     }: {
-      imports = [
-        "${modulesPath}/virtualisation/amazon-image.nix"
-        sops-nix.nixosModules.sops
-      ];
+      # Basic system configuration
+      system.stateVersion = "24.05";
 
-      # System configuration
-      system.stateVersion = "24.11";
-
-      # SOPS configuration for secrets management
-      sops = {
-        defaultSopsFile = ./secrets.yaml;
-        age.keyFile = "/var/lib/sops-nix/key.txt";
-        # If not using an age key that is expected to exist on the target machine
-        # Use the following instead for ephemeral VMs:
-        # age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
-
-        # Encrypted secrets
-        secrets = {
-          "admin-password" = {
-            neededForUsers = true;
-          };
-          "db-password" = {};
-          "api-token" = {};
+      # Set hostname
+      networking = {
+        hostName = name;
+        firewall = {
+          enable = true;
+          allowedTCPPorts = [22 80 443 3000 5432 9090 9100];
         };
       };
 
-      # User configuration with password from sops
-      users.users.admin = {
+      # User configuration with SSH key
+      users.users.nixos = {
         isNormalUser = true;
-        extraGroups = ["wheel"];
-        # Use the sops-managed password instead of plaintext
-        passwordFile = config.sops.secrets."admin-password".path;
+        extraGroups = ["wheel" "networkmanager"];
+        hashedPassword = "$y$j9T$g3Yr4JPbMOV/O32XBRoQA0$ncnks6S0h4zA5gZlrO31J1n8WfK9TEDDOc.FHrqYaf5";
         openssh.authorizedKeys.keys = [
-          # Add your SSH public key here
-          "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCMqMzUgRe2K350QBbQXbJFxVomsQbiIEw/ePUzjbyALklt5gMyo/yxbCWaKV1zeL4baR/vS5WOp9jytxceGFDaoJ7/O8yL4F2jj96Q5BKQOAz3NW/+Hmj/EemTOvVJWB1LQ+V7KgCbkxv6ZcUwL5a5+2QoujQNL5yVL
-       3ZrIXv6LuKg8w8wykl57zDcJGgYsF+05oChswAmTFXI7hR5MdQgMGNM/eN78VZjSKJYGgeujoJg4BPQ6VE/qfIcJaPmuiiJBs0MDYIB8pKeSImXCDqYWEL6dZkSyro8HHHMAzFk1YP+pNIWVi8l3F+ajEFrEpTYKvdsZ4TiP/7CBaaI+0yVIq1mQ100AWeUiTn89iF8yq
-       AgP8laLgMqZbM15Gm5UD7+g9/zsW0razyuclLogijvYRTMKt8vBa/rEfcx+qs8CuIrkXnD/KGfvoMDRgniWz8teaV1zfdDrkd6BhPVc5P3hI6gDY/xnSeijyyXL+XDE1ex6nfW5vNCwMiAWfDM+6k= olafkfreund@razer"
+          "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCMqMzUgRe2K350QBbQXbJFxVomsQbiIEw/ePUzjbyALklt5gMyo/yxbCWaKV1zeL4baR/vS5WOp9jytxceGFDaoJ7/O8yL4F2jj96Q5BKQOAz3NW/+Hmj/EemTOvVJWB1LQ+V7KgCbkxv6ZcUwL5a5+2QoujQNL5yVL3ZrIXv6LuKg8w8wykl57zDcJGgYsF+05oChswAmTFXI7hR5MdQgMGNM/eN78VZjSKJYGgeujoJg4BPQ6VE/qfIcJaPmuiiJBs0MDYIB8pKeSImXCDqYWEL6dZkSyro8HHHMAzFk1YP+pNIWVi8l3F+ajEFrEpTYKvdsZ4TiP/7CBaaI+0yVIq1mQ100AWeUiTn89iF8yqAgP8laLgMqZbM15Gm5UD7+g9/zsW0razyuclLogijvYRTMKt8vBa/rEfcx+qs8CuIrkXnD/KGfvoMDRgniWz8teaV1zfdDrkd6BhPVc5P3hI6gDY/xnSeijyyXL+XDE1ex6nfW5vNCwMiAWfDM+6k= olafkfreund@razer"
         ];
       };
+
+      # Allow passwordless sudo for wheel group
+      security.sudo.wheelNeedsPassword = false;
 
       # SSH server configuration
       services.openssh = {
         enable = true;
+        startWhenNeeded = false; # Make sure SSH starts at boot
         settings = {
-          PasswordAuthentication = false;
           PermitRootLogin = "no";
+          PasswordAuthentication = true;
+          KbdInteractiveAuthentication = true;
         };
       };
 
-      # Your application configuration
+      # Include useful packages
       environment.systemPackages = with pkgs; [
         vim
-        curl
         wget
+        curl
         git
+        htop
+        # Network tools for diagnostics
+        inetutils
+        iproute2
+        nettools
       ];
-
-      # Networking configuration (will work in both environments)
-      networking = {
-        firewall = {
-          enable = true;
-          allowedTCPPorts = [22 80 443];
-        };
-      };
-
-      # Add any additional services you need
-      services.nginx = {
-        enable = true;
-        virtualHosts."localhost" = {
-          root = pkgs.runCommand "testdir" {} ''
-            mkdir -p $out
-            echo "Hello from NixOS on local, AWS, and Azure!" > $out/index.html
-          '';
-        };
-      };
     };
 
-    # Azure-specific configuration
-    azureConfig = {pkgs, ...}: {
-      # Azure requires cloud-init for basic setup
-      services.cloud-init = {
-        enable = true;
-        network.enable = true;
-        settings = {
-          cloud_init_modules = [
-            "migrator"
-            "seed_random"
-            "bootcmd"
-            "write-files"
-            "growpart"
-            "resizefs"
-            "update_etc_hosts"
-            "ca-certs"
-            "users-groups"
-            "ssh"
+    # Modules for VM configuration
+    vmModules = [
+      # Local VM-specific configuration
+      ({
+        config,
+        pkgs,
+        ...
+      }: {
+        imports =
+          [
+            "${nixpkgs}/nixos/modules/virtualisation/qemu-vm.nix"
+          ]
+          ++ (getHostModules ./hosts);
+
+        # VM-specific settings
+        virtualisation = {
+          # Display settings
+          graphics = true;
+          # Resources
+          cores = 2;
+          memorySize = 2048;
+          diskSize = 8192;
+          # This is important for EFI boot
+          useBootLoader = true;
+          useEFIBoot = true;
+          # Port forwarding configuration
+          forwardPorts = [
+            {
+              from = "host";
+              host.port = 2222;
+              guest.port = 22;
+            }
           ];
-          system_info.distro = "nixos";
-          system_info.default_user.name = "admin";
         };
-      };
 
-      # Azure network settings
-      networking = {
-        useDHCP = true;
-        useNetworkd = true;
-        # Support DHCP on first network interface
-        usePredictableInterfaceNames = false;
-        interfaces.eth0.useDHCP = true;
-      };
+        # Set up boot loader for VM
+        boot.loader.systemd-boot.enable = true;
+        boot.loader.efi.canTouchEfiVariables = true;
 
-      # Azure agents and utilities
-      environment.systemPackages = with pkgs; [
-        azure-cli
-      ];
-    };
+        # Network setup with DHCP for VM
+        networking.useDHCP = true;
+      })
+      # Include the common VM configuration
+      (vmConfig {})
+    ];
   in {
-    # NixOS configuration for aws-ec2 instance
-    nixosConfigurations.aws-server = nixpkgs.lib.nixosSystem {
-      inherit system;
-      modules = [
-        commonConfig
-        # AWS-specific overrides
-        {
-          networking.hostName = "aws-nixos";
-        }
-      ];
+    # Define packages that can be built
+    packages.${system} = rec {
+      # Default package is the local VM runner
+      default = vm-runner;
+
+      # Local VM runner script
+      vm-runner = let
+        vm-config = self.nixosConfigurations.vm;
+        vm-derivation = vm-config.config.system.build.vm;
+      in
+        pkgs.writeShellScriptBin "run-vm" ''
+          #!${pkgs.runtimeShell}
+          echo "Starting NixOS VM..."
+          echo "SSH will be available on localhost:2222 once the VM is fully booted"
+          echo "Connect with: ssh nixos@localhost -p 2222"
+          echo "Password login is enabled, you can use: nixos/nixos"
+          ${vm-derivation}/bin/run-*-vm -m 2048
+        '';
     };
 
-    # NixOS configuration for Azure VM instance
-    nixosConfigurations.azure-server = nixpkgs.lib.nixosSystem {
-      inherit system;
-      modules = [
-        commonConfig
-        azureConfig
-        # Azure-specific overrides
-        {
-          networking.hostName = "azure-nixos";
-        }
-      ];
-    };
+    # Define applications (runnable commands)
+    apps.${system} = {
+      # Default app is to run the local VM
+      default = self.apps.${system}.runVM;
 
-    # NixOS configuration for local MicroVM
-    nixosConfigurations.local-vm = nixpkgs.lib.nixosSystem {
-      inherit system;
-      modules = [
-        microvm.nixosModules.microvm
-        commonConfig
-        # Local MicroVM specific configuration
-        {
-          networking.hostName = "local-nixos";
-
-          # MicroVM configuration
-          microvm = {
-            enable = true;
-            hypervisor = "qemu";
-            mem = 2048;
-            vcpu = 2;
-            volumes = [
-              {
-                mountPoint = "/";
-                image = "rootfs.img";
-                size = 10240; # 10GB
-              }
-            ];
-            shares = [
-              {
-                tag = "ro-store";
-                source = "/nix/store";
-                mountPoint = "/nix/.ro-store";
-              }
-            ];
-            interfaces = [
-              {
-                type = "tap";
-                id = "vm-tap";
-                mac = "02:00:00:00:00:01";
-              }
-            ];
-          };
-
-          # Network configuration for the local VM
-          systemd.network = {
-            enable = true;
-            networks."20-lan" = {
-              matchConfig.Name = "eth0";
-              networkConfig = {
-                DHCP = "yes";
-              };
-            };
-          };
-        }
-      ];
-    };
-
-    # Generate AMI for AWS
-    packages.${system} = {
-      aws-ami = nixos-generators.nixosGenerate {
-        inherit system;
-        modules = [
-          self.nixosConfigurations.aws-server.config
-        ];
-        format = "amazon";
-      };
-
-      # Generate VHD for Azure
-      azure-vhd = nixos-generators.nixosGenerate {
-        inherit system;
-        modules = [
-          self.nixosConfigurations.azure-server.config
-          {
-            # Make sure the disk has enough space for Azure
-            fileSystems."/" = {
-              device = "/dev/disk/by-label/nixos";
-              fsType = "ext4";
-              autoResize = true;
-            };
-            boot.growPartition = true;
-            boot.kernelParams = ["console=ttyS0" "console=tty1" "nvme.shutdown_timeout=10"];
-          }
-        ];
-        format = "azure";
+      # Run the local VM
+      runVM = {
+        type = "app";
+        program = "${self.packages.${system}.vm-runner}/bin/run-vm";
       };
     };
 
-    # Development shell with all necessary tools
-    devShells.${system}.default = pkgs.mkShell {
-      buildInputs = with pkgs; [
-        # Infrastructure as Code
-        terraform
-        pulumi
-
-        # AWS tools
-        awscli2
-        ssm-session-manager-plugin
-
-        # Azure tools
-        azure-cli
-        azurerm-cli
-        azure-storage-azcopy
-
-        # Helpful tools
-        jq
-        yq
-        nixos-generators
-
-        # Secrets management
-        sops
-        age
-      ];
-
-      shellHook = ''
-        echo "NixOS + Terraform AWS/Azure Development Environment"
-        echo "Commands:"
-        echo "  - terraform: Manage cloud infrastructure"
-        echo "  - aws: AWS CLI"
-        echo "  - az: Azure CLI"
-        echo "  - build-ami: Build the AWS AMI"
-        echo "  - build-azure-vhd: Build the Azure VHD"
-        echo "  - run-local: Run the local MicroVM"
-
-        # Create helper functions
-        build-ami() {
-          nix build .#aws-ami
-        }
-
-        build-azure-vhd() {
-          nix build .#azure-vhd
-        }
-
-        run-local() {
-          sudo systemd-run --unit=nixos-microvm \
-            $(nix build .#nixosConfigurations.local-vm.config.microvm.declaredRunner --print-out-paths --no-link)
-          echo "MicroVM started. You can connect with:"
-          echo "  ssh admin@$(ip -4 addr show vm-tap | grep -oP '(?<=inet\s)\d+(\.\d+){3}')"
-        }
-
-        # Helper for uploading VHD to Azure Storage
-        upload-azure-vhd() {
-          if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-            echo "Usage: upload-azure-vhd <storage-account> <container> <resource-group>"
-            return 1
-          fi
-
-          local storage_account="$1"
-          local container="$2"
-          local resource_group="$3"
-          local vhd_path="$(readlink -f ./result/disk.vhd)"
-
-          echo "Uploading VHD to Azure Storage..."
-          az storage blob upload \
-            --account-name "$storage_account" \
-            --container-name "$container" \
-            --file "$vhd_path" \
-            --name "nixos-azure.vhd" \
-            --auth-mode login
-
-          echo "VHD uploaded. You can create a VM from this image using:"
-          echo "az image create --resource-group $resource_group --name nixos-image --os-type Linux --source https://$storage_account.blob.core.windows.net/$container/nixos-azure.vhd"
-        }
-
-        # Generate a new age key for a host
-        gen-age-key() {
-          local NAME="$1"
-          if [ -z "$NAME" ]; then
-            echo "Usage: gen-age-key <name>"
-            echo "Example: gen-age-key aws-host"
-            return 1
-          fi
-
-          mkdir -p ./keys
-          age-keygen -o "./keys/$NAME.key" 2>/dev/null
-          echo "Age key generated for $NAME"
-          echo "Public key: $(age-keygen -y -o "./keys/$NAME.key" 2>/dev/null)"
-          echo "Update your .sops.yaml file with this public key"
-        }
-
-        # Encrypt secrets
-        encrypt-secrets() {
-          sops --encrypt --in-place secrets.yaml
-          echo "Secrets encrypted with sops"
-        }
-
-        # Edit secrets
-        edit-secrets() {
-          EDITOR=vim sops secrets.yaml
-        }
-      '';
+    # Define NixOS configurations
+    nixosConfigurations.vm = lib.nixosSystem {
+      inherit system;
+      modules =
+        vmModules
+        ++ [
+          # Properly configure nixpkgs to use our pkgs
+          {nixpkgs.pkgs = pkgs;}
+        ];
     };
   };
 }

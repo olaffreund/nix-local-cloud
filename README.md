@@ -1,112 +1,99 @@
-# nix-local-cloud
-Create a NixOS VM and run it locally for testing or push to AWS or Azure
+# NixOS Local Cloud
 
+This project provides a NixOS VM configuration that can be run locally using QEMU and deployed to AWS as a custom AMI.
 
-## How to Use This Setup
+## Project Structure
 
-1. **Set up your development environment**:
-   ```bash
-   nix develop
-   ```
+- `flake.nix`: Main Nix Flake for running the local VM
+- `hosts/`: Service-specific configurations (database, Grafana, Nginx, Prometheus)
+- `AWS/`: Configuration files for building and deploying a NixOS AWS AMI
+- `terraform/`: Infrastructure as code for cloud deployments
 
-2. **For AWS deployment**:
-   ```bash
-   # Build the AWS AMI
-   build-ami
-   
-   # Deploy to AWS
-   cd terraform/AWS
-   terraform init
-   terraform plan
-   terraform apply
-   ```
+## Requirements
 
-3. **For Azure deployment**:
-   ```bash
-   # Build the Azure VHD
-   build-azure-vhd
-   
-   # Upload the VHD to your Azure Storage Account
-   upload-azure-vhd your-storage-account your-container your-resource-group
-   
-   # Deploy to Azure using Terraform
-   cd terraform/AZ
-   terraform init
-   terraform plan
-   terraform apply
-   ```
+- Nix with flakes enabled
+- QEMU (for local VM)
+- AWS CLI (for AWS deployment)
 
-4. **Test locally**:
-   ```bash
-   run-local
-   ```
-   This will start a MicroVM with the same base configuration.
+## Running the Local VM
 
-## Secrets Management
+To run the VM locally:
 
-This project uses [sops-nix](https://github.com/Mic92/sops-nix) to securely manage secrets across cloud deployments. All sensitive data like passwords and API tokens are encrypted in the `secrets.yaml` file.
+```bash
+nix run
+```
 
-### Setting Up Secrets
+The VM will be available with:
+- SSH access on port 2222 (connect with `ssh nixos@localhost -p 2222`)
+- Username: `nixos`, password: `nixos` (or use SSH key)
 
-1. **Generate age keys for your hosts**:
-   ```bash
-   # Generate keys (once per host)
-   gen-age-key aws-host
-   gen-age-key azure-host
-   gen-age-key local-vm
-   ```
+## Deploying to AWS
 
-2. **Update the .sops.yaml file** with the public keys output from the previous commands.
+AWS deployment is handled in the separate `AWS/` directory:
 
-3. **Edit the secrets**:
-   ```bash
-   # Edit the secrets file with automatic encryption
-   edit-secrets
-   ```
-   Or manually edit and then encrypt:
-   ```bash
-   # Edit secrets.yaml with your editor
-   vim secrets.yaml
-   # Encrypt after editing
-   encrypt-secrets
-   ```
+```bash
+cd AWS
 
-4. **Access in NixOS**: The secrets are automatically decrypted during system activation and made available at the paths defined in the `sops.secrets` configuration.
+# Build the AWS image only
+nix build
 
-### Secret Rotation
+# Build and upload the image to AWS (creates an AMI)
+nix run
+```
 
-To change secrets:
-1. Use `edit-secrets` to modify the encrypted values
-2. Rebuild and deploy your systems
+The upload script will:
+1. Build a NixOS image using the AWS-specific configuration
+2. Upload it to an S3 bucket
+3. Import it as an EBS snapshot
+4. Register it as an AMI
+5. Output the AMI ID for use with Terraform
 
-## Key Components
+### Deploying with Terraform
 
-1. **Common Configuration**: The local VM, AWS instance, and Azure VM all use the same base NixOS configuration, ensuring consistency.
+After creating the AMI, use Terraform to deploy your infrastructure:
 
-2. **NixOS Generators**: Used to build the AWS AMI and Azure VHD.
+```bash
+cd terraform/AWS
 
-3. **MicroVM**: Used to run a local VM with the same configuration.
+# Initialize Terraform
+terraform init
 
-4. **Terraform**: Used to deploy the infrastructure to AWS and Azure.
+# Create a terraform.tfvars file with your configuration
+cat > terraform.tfvars << EOF
+aws_region = "us-west-2"  # Change to your preferred region
+nixos_ami_id = "ami-01234567890abcdef"  # Use the AMI ID from the previous step
+EOF
 
-5. **Development Shell**: Provides all the necessary tools to build and deploy.
+# Plan and apply
+terraform plan
+terraform apply
+```
 
-6. **Secrets Management**: Uses sops-nix to securely manage credentials across environments.
+## Accessing Services
 
-This approach gives you a consistent environment between local development and cloud deployment, which is ideal for testing and development workflows.
+Once the VM is running (locally or in AWS), you can access the services:
 
-## Cloud-Specific Notes
+- **Grafana**: Port 3000 (default credentials: admin/admin)
+- **Nginx**: Port 80
+- **PostgreSQL Database**: Port 5432
+- **Prometheus**: Port 9090
 
-### AWS
-- The AMI is built using the amazon format in nixos-generators
-- The AMI is automatically configured for EC2 initialization
+## Adding New Services
 
-### Azure
-- The VHD is built using the azure format in nixos-generators
-- Cloud-init is configured for Azure compatibility
-- The VHD needs to be uploaded to an Azure Storage Account and converted to a managed image before deployment
+To add a new service:
 
-Remember to:
-1. Replace the SSH public key with your own (in the flake.nix and Azure Terraform config)
-2. Update the resource group and storage settings in the Azure Terraform configuration
-3. Customize the NixOS configuration according to your needs
+1. Create a new directory under `hosts/` with the service name
+2. Add a `default.nix` file in that directory with the service configuration
+3. The service will be automatically imported by both the local VM and the AWS image
+
+## Customizing
+
+- Edit `flake.nix` to modify the local VM configuration
+- Edit `AWS/configuration.nix` to modify the AWS AMI configuration
+- Edit files in `hosts/` to modify specific services
+
+## Security Notes
+
+- Default SSH public key should be replaced with your own
+- Firewall settings should be reviewed before production use
+- PostgreSQL and other services may have default passwords that should be changed

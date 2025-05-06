@@ -21,3 +21,27 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+
+# Nix build outputs
+result
+result-*
+
+# Local VM files
+.vm/
+vm-state/
+nixos-microvm/
+
+# Terraform files
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Editor files
+*~
+.*.swp
+.DS_Store
+
+# Nix development environment
+.direnv/
