@@ -3,7 +3,7 @@
 # This script generates all the required encrypted secret files for the project
 
 # Ensure we're in the secrets directory
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 
 # Set environment variable to use our recipients file
 export RULES="./recipients.nix"

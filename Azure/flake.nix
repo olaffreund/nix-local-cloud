@@ -7,12 +7,17 @@
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     nixos-generators,
+    agenix,
     ...
   }: let
     system = "x86_64-linux";
@@ -33,7 +38,7 @@
       else [];
 
     # Import Common configuration from configuration.nix
-    commonConfig = import ./configuration.nix { inherit lib pkgs; };
+    commonConfig = import ./configuration.nix {inherit lib pkgs;};
 
     # Azure-specific configuration
     azureConfig = {
@@ -83,7 +88,7 @@
       boot.loader.grub = {
         enable = true;
         device = lib.mkForce "/dev/sda"; # Use mkForce to ensure this value is used over default
-        efiSupport = lib.mkForce false;   # Use mkForce to match Azure image requirements
+        efiSupport = lib.mkForce false; # Use mkForce to match Azure image requirements
         efiInstallAsRemovable = lib.mkForce false; # Also set this to false to avoid conflicts
       };
 
@@ -153,6 +158,9 @@
         modules = [
           commonConfig
           azureConfig
+          # Add agenix module
+          agenix.nixosModules.default
+          ../secrets/secrets.nix
         ];
         format = "azure";
       };
@@ -179,6 +187,9 @@
       modules = [
         commonConfig
         azureConfig
+        # Add agenix module
+        agenix.nixosModules.default
+        ../secrets/secrets.nix
       ];
     };
   };

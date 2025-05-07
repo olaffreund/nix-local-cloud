@@ -4,7 +4,7 @@
 # This should be run after modifying the recipients.nix file
 
 # Ensure we're in the secrets directory
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit 1
 
 # Set environment variable to use our recipients file
 export RULES="./recipients.nix"

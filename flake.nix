@@ -32,7 +32,11 @@
       else [];
 
     # Import VM configuration from local folder
-    vmConfigFile = import ./local/configuration.nix {inherit lib pkgs;};
+    vmConfigFile = import ./local/configuration.nix {
+      inherit lib pkgs;
+      # Pass a dummy config that will be overridden when actually used
+      config = {};
+    };
 
     # Modules for VM configuration
     vmModules = [

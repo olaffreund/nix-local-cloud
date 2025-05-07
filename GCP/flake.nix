@@ -7,12 +7,17 @@
       url = "github:nix-community/nixos-generators";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     nixos-generators,
+    agenix,
     ...
   }: let
     system = "x86_64-linux";
@@ -159,6 +164,9 @@
         modules = [
           commonConfig
           gcpConfig
+          # Add agenix module
+          agenix.nixosModules.default
+          ../secrets/secrets.nix
         ];
         format = "gce";
       };
@@ -185,6 +193,9 @@
       modules = [
         commonConfig
         gcpConfig
+        # Add agenix module
+        agenix.nixosModules.default
+        ../secrets/secrets.nix
       ];
     };
   };
