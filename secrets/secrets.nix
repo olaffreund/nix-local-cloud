@@ -40,6 +40,13 @@
       owner = "nginx";
       group = "nginx";
     };
+
+    # Tailscale authentication key
+    tailscale-auth-key = {
+      file = ./tailscale-auth-key.age;
+      mode = "0400";
+      owner = "root";
+    };
   };
 
   # Set the file to use as age identity

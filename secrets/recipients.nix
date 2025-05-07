@@ -50,4 +50,13 @@ in {
     azure-vm-key
     gcp-vm-key
   ];
+
+  # Add entry for Tailscale auth key
+  "tailscale-auth-key.age".publicKeys = [
+    host-key
+    local-vm-key
+    aws-vm-key
+    azure-vm-key
+    gcp-vm-key
+  ];
 }
