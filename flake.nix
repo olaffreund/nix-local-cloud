@@ -3,11 +3,16 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    agenix = {
+      url = "github:ryantm/agenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
+    agenix,
   }: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
@@ -127,6 +132,9 @@
         ++ [
           # Properly configure nixpkgs to use our pkgs
           {nixpkgs.pkgs = pkgs;}
+          # Add agenix module
+          agenix.nixosModules.default
+          ./secrets/secrets.nix
         ];
     };
   };

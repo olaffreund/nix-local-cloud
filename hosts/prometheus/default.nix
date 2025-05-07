@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  config,
+  ...
+}: {
   # Enable Prometheus monitoring system
   services.prometheus = {
     enable = true;
@@ -9,6 +13,13 @@
       scrape_interval = "15s";
       evaluation_interval = "15s";
     };
+
+    # Use secure password from agenix
+    webExternalUrl = "http://localhost:9090";
+    webConfigFile = pkgs.writeText "prometheus-web-config.yml" ''
+      basic_auth_users:
+        admin: ${builtins.readFile config.age.secrets.prometheus-password.path}
+    '';
 
     # Configure rules for alerts
     ruleFiles = [

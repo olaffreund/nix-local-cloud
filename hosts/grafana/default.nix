@@ -1,4 +1,4 @@
-{...}: {
+{config, ...}: {
   # Enable Grafana service
   services.grafana = {
     enable = true;
@@ -12,10 +12,8 @@
       };
 
       security = {
-        # Set admin password directly (for development only)
-        admin_password = "admin";
-        # Alternatively, use this for production:
-        # admin_password = "$__file{${pkgs.writeText "admin-password" "admin"}}";
+        # Use secure password from agenix
+        admin_password = "$__file{${config.age.secrets.grafana-admin-password.path}}";
       };
 
       # Fix for deprecated anonymous auth options
@@ -53,6 +51,6 @@
   # Add a custom message to the login banner
   environment.etc."issue.d/grafana-info.txt".text = ''
     Grafana is running at http://localhost:3000
-    Default credentials: admin/admin
+    Default credentials: admin/[secure-password]
   '';
 }

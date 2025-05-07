@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  pkgs,
+  config,
+  ...
+}: {
   # Enable PostgreSQL database server
   services.postgresql = {
     enable = true;
@@ -22,9 +26,9 @@
       host    all             all             ::1/128                 trust
     '';
 
-    # Initialize a sample database
+    # Initialize a sample database with secure password from agenix
     initialScript = pkgs.writeText "postgresql-init.sql" ''
-      CREATE ROLE nixos WITH LOGIN PASSWORD 'nixos' CREATEDB;
+      CREATE ROLE nixos WITH LOGIN PASSWORD '${builtins.readFile config.age.secrets.database-password.path}' CREATEDB;
       CREATE DATABASE nixos;
       GRANT ALL PRIVILEGES ON DATABASE nixos TO nixos;
     '';
@@ -37,6 +41,6 @@
   environment.etc."issue.d/postgresql-info.txt".text = ''
     PostgreSQL is running on port 5432
     Default database: nixos
-    Default credentials: nixos/nixos
+    Default credentials: nixos/[secure-password]
   '';
 }

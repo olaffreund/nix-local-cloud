@@ -1,7 +1,6 @@
 {
   config,
   pkgs,
-  lib,
   ...
 }: {
   # Enable Nginx web server
@@ -33,6 +32,24 @@
             '';
           };
 
+          # Add a secure admin area with basic auth using agenix
+          "/admin/" = {
+            root = pkgs.writeTextDir "admin/index.html" ''
+              <!DOCTYPE html>
+              <html>
+                <head><title>Admin Area</title></head>
+                <body>
+                  <h1>Secure Admin Area</h1>
+                  <p>This area is protected with basic authentication.</p>
+                </body>
+              </html>
+            '';
+            extraConfig = ''
+              auth_basic "Administrator's Area";
+              auth_basic_user_file ${config.age.secrets.nginx-htpasswd.path};
+            '';
+          };
+
           # Add a proxy example for Grafana
           "/grafana/" = {
             proxyPass = "http://127.0.0.1:3000/";
@@ -54,5 +71,6 @@
   # Add a custom message to the login banner
   environment.etc."issue.d/nginx-info.txt".text = ''
     Nginx is running at http://localhost
+    Admin area at http://localhost/admin/ (credentials: admin/[secure-password])
   '';
 }
