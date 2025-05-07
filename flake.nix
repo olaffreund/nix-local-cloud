@@ -15,7 +15,15 @@
     agenix,
   }: let
     system = "x86_64-linux";
-    pkgs = nixpkgs.legacyPackages.${system};
+    pkgs = import nixpkgs {
+      inherit system;
+      config = {
+        allowUnfree = true;
+        permittedInsecurePackages = [
+          # Add any insecure packages you need to permit here
+        ];
+      };
+    };
     lib = nixpkgs.lib;
 
     # Function to get all NixOS modules from hosts subdirectories
@@ -36,6 +44,60 @@
       inherit lib pkgs;
       # Pass a dummy config that will be overridden when actually used
       config = {};
+    };
+
+    # Development shell with cloud provider tools
+    devShells.${system} = {
+      default = pkgs.mkShell {
+        name = "cloud-dev-environment";
+        buildInputs = with pkgs; [
+          # Terraform and related tools
+          terraform
+          terraform-ls
+          terragrunt
+
+          # AWS tools
+          awscli2
+          ssm-session-manager-plugin
+
+          # Azure tools
+          azure-cli
+
+          # GCP tools
+          google-cloud-sdk
+
+          # Supporting tools
+          jq
+          yq
+          direnv
+          nix-direnv
+          pre-commit
+
+          # Debugging and monitoring
+          kubectl
+          kubectx
+          k9s
+        ];
+
+        shellHook = ''
+          echo "🌥️  Cloud Development Environment Ready 🌥️"
+          echo ""
+          echo "📦 Available tools:"
+          echo "   - Terraform, Terragrunt"
+          echo "   - AWS CLI, Azure CLI, Google Cloud SDK"
+          echo "   - Kubernetes tools: kubectl, kubectx, k9s"
+          echo ""
+          echo "🔄 Quick commands:"
+          echo "   - AWS login:    aws sso login"
+          echo "   - Azure login:  az login"
+          echo "   - GCP login:    gcloud auth login"
+          echo ""
+          echo "🚀 To deploy infrastructure:"
+          echo "   - cd AWS/terraform && terraform init && terraform apply"
+          echo "   - cd Azure/terraform && terraform init && terraform apply"
+          echo "   - cd GCP/terraform && terraform init && terraform apply"
+        '';
+      };
     };
 
     # Modules for VM configuration
@@ -115,6 +177,9 @@
           fi
         '';
     };
+
+    # Export devShells to the flake outputs
+    inherit devShells;
 
     # Define applications (runnable commands)
     apps.${system} = {
