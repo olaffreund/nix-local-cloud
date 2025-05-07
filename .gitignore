@@ -43,6 +43,36 @@ nixos-vm-efi-vars.fd
 *.tfstate.*
 *.tfvars
 
+# Cloud provider credentials
+# AWS
+.aws/
+credentials
+config
+aws_credentials
+aws_config
+credentials.csv
+*.pem
+access-key-*.json
+
+# Azure
+.azure/
+azureProfile.json
+AzureRMContext.json
+.azurecli/
+azure.json
+*.publishsettings
+
+# GCP
+.config/gcloud/
+gcloud/
+application_default_credentials.json
+legacy_credentials/
+*.json.enc
+gcp-*.json
+gcp-key.json
+service-account-*.json
+service-account.json
+
 # Editor files
 *~
 .*.swp
